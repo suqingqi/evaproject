@@ -556,10 +556,10 @@ for _ in range(N_CANDIDATES * 5):
         minimum = df[feature].min()
         maximum = df[feature].max()
 
-        candidate[feature] = rng.uniform(
-            minimum,
-            maximum
-        )
+        # Match the historical experimental resolution: 0.1 wt%.
+        low = int(np.ceil(minimum * 10 - 1e-9))
+        high = int(np.floor(maximum * 10 + 1e-9))
+        candidate[feature] = rng.integers(low, high + 1) / 10.0
 
 
     # Calculate EVA as balance
@@ -570,9 +570,9 @@ for _ in range(N_CANDIDATES * 5):
     )
 
 
-    eva_content = (
-        100.0
-        - non_eva_sum
+    eva_content = round(
+        100.0 - non_eva_sum,
+        1
     )
 
 

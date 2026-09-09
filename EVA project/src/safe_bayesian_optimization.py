@@ -376,40 +376,20 @@ def generate_candidates(
             )
         )
 
-        eva = rng.uniform(
-            min_values["EVA_content"],
-            max_values["EVA_content"]
-        )
+        # Match the experimental data resolution: 0.1 wt% for
+        # continuous formulation variables. This avoids recommending
+        # impractical recipes with many decimal places.
+        def sample_tenth(feature):
+            low = int(np.ceil(min_values[feature] * 10 - 1e-9))
+            high = int(np.floor(max_values[feature] * 10 + 1e-9))
+            return rng.integers(low, high + 1) / 10.0
 
-        fr_a = rng.uniform(
-            min_values["FR_A"],
-            max_values["FR_A"]
-        )
-
-        fr_b = rng.uniform(
-            min_values["FR_B"],
-            max_values["FR_B"]
-        )
-
-        fr_c = rng.uniform(
-            min_values["FR_C"],
-            max_values["FR_C"]
-        )
-
-        fr_d = rng.uniform(
-            min_values["FR_D"],
-            max_values["FR_D"]
-        )
-
-        additive_1 = rng.uniform(
-            min_values["Additive_1"],
-            max_values["Additive_1"]
-        )
-
-        additive_2 = rng.uniform(
-            min_values["Additive_2"],
-            max_values["Additive_2"]
-        )
+        fr_a = sample_tenth("FR_A")
+        fr_b = sample_tenth("FR_B")
+        fr_c = sample_tenth("FR_C")
+        fr_d = sample_tenth("FR_D")
+        additive_1 = sample_tenth("Additive_1")
+        additive_2 = sample_tenth("Additive_2")
 
         # ----------------------------------------------------
         # Formulation total constraint
@@ -429,7 +409,10 @@ def generate_candidates(
             + additive_2
         )
 
-        eva_required = 100.0 - other_total
+        # All non-EVA components are on the historical experimental
+        # grid, so EVA can be used as the balance component while
+        # preserving a practical 0.1 wt% resolution and exactly 100 wt%.
+        eva_required = round(100.0 - other_total, 1)
 
         # ----------------------------------------------------
         # Keep EVA inside experimental range
