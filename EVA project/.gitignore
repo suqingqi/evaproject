@@ -12,7 +12,10 @@ venv/
 env/
 
 # Generated results
-results/
+results/*
+!results/next_experiment_selection/
+results/next_experiment_selection/*
+!results/next_experiment_selection/next_experiments.csv
 
 # Temporary files
 *.tmp
