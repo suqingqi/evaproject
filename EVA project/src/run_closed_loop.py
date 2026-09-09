@@ -16,7 +16,7 @@ PIPELINE = [
     ("Bayesian optimization", "bayesian_optimization.py"),
     ("Safety-aware Bayesian optimization", "safe_bayesian_optimization.py"),
     ("Final recommendation", "final_recommendation.py"),
-    ("Next experiment selection", "next_experiment_recommendation .py"),
+    ("Next experiment selection", "next_experiment_recommendation.py"),
 ]
 
 

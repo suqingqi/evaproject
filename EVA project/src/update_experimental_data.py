@@ -92,7 +92,7 @@ def practical_rounding(df):
 def create_template():
     if not NEXT_EXPERIMENT_PATH.exists():
         raise FileNotFoundError(
-            "STEP 18 output not found. Run next_experiment_recommendation .py first:\n"
+            "STEP 18 output not found. Run next_experiment_recommendation.py first:\n"
             f"{NEXT_EXPERIMENT_PATH}"
         )
 
