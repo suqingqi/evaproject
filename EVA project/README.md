@@ -1,359 +1,425 @@
-# EVA Polymer Multi-Objective Optimization
+# EVA Flame-Retardant Formulation Optimization
 
-> Data-driven EVA formulation optimization with machine learning, multi-objective optimization, applicability-domain control, safety-aware Bayesian optimization, and batch experiment selection.
+> 基于 **Machine Learning + Multi-objective Optimization + Bayesian Optimization** 的 EVA 阻燃配方研发项目。  
+> 核心目标：利用有限实验数据，在 **阻燃性能、透明度与模型可靠性** 之间寻找更值得验证的下一批配方。
+
+---
 
 ## 1. Project Overview
 
-This project targets **EVA polymer formulation design** and builds an end-to-end workflow from historical experimental data to model-based formulation recommendation.
+本项目来源于 EVA 阻燃材料研发场景，关注一个实际的配方设计问题：
 
-The project jointly considers three core properties:
+> **如何利用已有实验数据，在 LOI、UL-94 和透光率存在性能权衡的情况下，减少盲目试配，并推荐更值得进行下一轮实验的配方？**
 
-- **LOI** — regression, higher is better
-- **UL-94** — classification of flame-retardant level
-- **Transmittance** — regression, higher is better
+项目使用 **100 组 EVA 历史配方实验数据**，分别建立：
 
-The objective is not simply to obtain the highest model prediction. Instead, the workflow searches for formulations that balance **predicted performance, model reliability, applicability domain, and experimental executability**.
+- LOI 回归模型
+- UL-94 分类模型
+- Transmittance 回归模型
 
-### R&D workflow
+随后结合：
 
 ```text
-Historical experimental data
+Machine Learning
         ↓
-Data cleaning & validation
+Multi-objective Prediction
         ↓
-LOI / UL-94 / Transmittance models
+Pareto Optimization
         ↓
-Model diagnostics
+Bayesian Optimization
         ↓
-Multi-objective prediction
+Uncertainty + Applicability Domain
         ↓
-Pareto analysis
+Batch Experiment Selection
         ↓
-Bayesian optimization
-        ↓
-Gaussian-process uncertainty
-        ↓
-Applicability-domain / formulation-distance filtering
-        ↓
-Safety-aware candidate screening
-        ↓
-Batch experiment selection
-(performance + uncertainty + diversity)
-        ↓
-Recommended next experiments
-        ↓
-Real experimental measurements
-        ↓
-Data validation & dataset update
-        ↓
-Model retraining / next optimization cycle
+Recommended Next Experiments
 ```
 
-The final feedback/retraining stage is implemented as a workflow interface. **No synthetic experimental feedback is used.** It is activated only after real measurements become available.
+最终目标不是寻找“预测值最高”的配方，而是寻找：
+
+> **性能较好、模型相对可信、同时具有实验价值的候选配方。**
 
 ---
 
 ## 2. Dataset
 
-The current dataset contains **100 EVA formulation experiments**.
+当前数据集包含：
 
-### Input variables
+```text
+100 EVA formulation experiments
+```
 
-| Variable | Description |
+主要输入变量：
+
+| Type | Variables |
 |---|---|
-| EVA_content | EVA content |
-| Polymer_A | Polymer component A |
-| Polymer_B | Polymer component B |
-| FR_A | Flame retardant A |
-| FR_B | Flame retardant B |
-| FR_C | Flame retardant C |
-| FR_D | Flame retardant D |
-| Additive_1 | Additive 1 |
-| Additive_2 | Additive 2 |
+| Polymer | EVA_content, Polymer_A, Polymer_B |
+| Flame retardants | FR_A, FR_B, FR_C, FR_D |
+| Additives | Additive_1, Additive_2 |
 
-### Targets
+预测目标：
 
-| Target | Task | Role |
+| Target | Task | Objective |
 |---|---|---|
-| LOI | Regression | Maximize |
+| LOI | Regression | Higher is better |
 | UL-94 | Classification | Improve flame-retardant level |
-| Transmittance | Regression | Maximize |
-| Haze | Experimental reference | Stored for feedback consistency |
+| Transmittance | Regression | Higher is better |
+| Haze | Experimental reference | Feedback / validation |
 
-All formulations are checked against the formulation-balance constraint:
+所有候选配方需要满足：
 
 ```text
 Total formulation ≈ 100 wt%
 ```
 
-Experimental-resolution constraints are also respected when generating candidate formulations. Continuous optimizer outputs are converted to the practical precision used by the historical dataset before recommendation.
+同时将连续优化结果转换为实际实验可执行的配方精度，避免出现没有实际意义的过多小数位。
 
 ---
 
 ## 3. Predictive Models
 
-### 3.1 LOI Regression
+### LOI
 
-Models compared:
+比较：
 
-- Linear Regression
-- Random Forest
+```text
+Linear Regression
+Random Forest
+```
 
-Model selection is based primarily on **5-fold cross-validation RMSE**, while a hold-out set is retained for an intuitive independent check.
-
-| Evaluation | MAE | RMSE | R² |
-|---|---:|---:|---:|
-| Hold-out | 0.674 | 0.843 | 0.897 |
-| 5-fold CV | 0.538 ± 0.078 | 0.681 ± 0.095 | 0.926 ± 0.015 |
-
-**Selected model: Linear Regression**
-
-After the model family is selected, the final production model is retrained on all 100 available experimental samples before candidate screening.
-
-### 3.2 UL-94 Classification
-
-Models compared:
-
-- Logistic Regression
-- Random Forest
-
-**Selected model: Logistic Regression**
+5-fold CV：
 
 | Metric | Result |
+|---|---:|
+| MAE | 0.538 ± 0.078 |
+| RMSE | 0.681 ± 0.095 |
+| R² | 0.926 ± 0.015 |
+
+最终选择：
+
+```text
+Linear Regression
+```
+
+模型选择完成后，使用全部 100 组已有实验数据重新训练最终模型，用于候选配方预测。
+
+---
+
+### UL-94
+
+比较：
+
+```text
+Logistic Regression
+Random Forest
+```
+
+最终选择：
+
+```text
+Logistic Regression
+```
+
+结果：
+
+| Metric | Score |
 |---|---:|
 | Accuracy | 0.900 |
 | Macro Precision | 0.926 |
 | Macro Recall | 0.926 |
 | Macro F1 | 0.917 |
 
-Current class coverage:
+当前类别分布：
 
-| UL-94 class | Samples |
+| UL-94 | Samples |
 |---|---:|
 | NR | 37 |
 | V-2 | 43 |
 | V-1 | 20 |
-| V-0 | 0 |
+| V-0 | **0** |
 
-> **Important limitation:** the training data contain no V-0 samples. Therefore, the current classifier has learned only NR, V-2 and V-1 and must **not** be presented as a validated V-0 predictor. Real V-0 experimental samples are required before that class can be learned reliably.
-
-### 3.3 Transmittance Regression
-
-Models compared:
-
-- Linear Regression
-- Random Forest
-
-**Selected model: Linear Regression**
-
-| Evaluation | MAE | RMSE | R² |
-|---|---:|---:|---:|
-| Hold-out | 0.898 | 1.005 | 0.974 |
-| 5-fold CV | 0.920 ± 0.109 | 1.124 ± 0.180 | 0.958 ± 0.018 |
+> **重要限制：当前训练数据没有 V-0 样本，因此模型不能被描述为已经具备可靠的 V-0 预测能力。**
 
 ---
 
-## 4. Multi-Objective Formulation Optimization
+### Transmittance
 
-The three predictive models are integrated into one formulation-search workflow.
-
-The optimization objective is to balance:
+比较：
 
 ```text
-LOI
-+
-UL-94 fire-performance score
-+
-Transmittance
+Linear Regression
+Random Forest
 ```
 
-Because these properties can conflict, a single weighted optimum is not sufficient to describe the design space. Pareto analysis is therefore used to identify formulations for which no other formulation is simultaneously better in all objectives.
+最终选择：
+
+```text
+Linear Regression
+```
+
+5-fold CV：
+
+| Metric | Result |
+|---|---:|
+| MAE | 0.920 ± 0.109 |
+| RMSE | 1.124 ± 0.180 |
+| R² | 0.958 ± 0.018 |
+
+---
+
+## 4. Multi-Objective Optimization
+
+真实配方研发中：
+
+```text
+LOI ↑
+UL-94 ↑
+Transmittance ↑
+```
+
+并不一定能够同时达到最优。
+
+例如，提高阻燃剂用量可能改善阻燃性能，但同时影响：
+
+```text
+transparency
+processability
+formulation balance
+```
+
+因此项目没有简单构造一个“最高预测分数”，而是使用：
+
+```text
+Pareto Optimization
+```
+
+寻找无法在所有目标上被其他候选同时超越的配方。
 
 ![Pareto Front](docs/images/pareto_loi_transmittance.png)
 
 ---
 
-## 5. Bayesian Optimization
+## 5. Bayesian Optimization & Reliability Control
 
-A Gaussian Process surrogate is used to explore candidate formulations and estimate both:
+在 Pareto 分析基础上进一步使用 Gaussian Process 进行 Bayesian Optimization。
 
-- predicted utility, \(\mu(x)\)
-- predictive uncertainty, \(\sigma(x)\)
-
-The acquisition logic balances exploitation and exploration rather than selecting only the highest predicted response.
-
-A key observation from the project is that unconstrained optimization can push candidate formulations into regions that are poorly represented by the experimental dataset. This creates apparently attractive predictions that may be dominated by extrapolation risk.
-
----
-
-## 6. Safety-Aware Bayesian Optimization
-
-To reduce extrapolation risk, the project adds a practical safety-aware screening layer based on:
-
-- formulation-balance constraints
-- Gaussian-process uncertainty
-- experimental property ranges
-- applicability-domain distance
-- distance from historical formulations
-- multi-objective / Pareto filtering
-
-This is intentionally described as **safety-aware Bayesian optimization**, not theoretical SafeOpt. The method is a practical engineering constraint layer for materials formulation screening and does not claim formal safety guarantees.
-
-Latest closed-pipeline output:
+模型同时考虑：
 
 ```text
-Experimental samples:                    100
-Safe BO candidates loaded:               20
-Within experimental performance ranges:  10
-Safe BO Pareto candidates:                7
-Final model-based recommendations:        5
+Predicted utility μ(x)
++
+Predictive uncertainty σ(x)
 ```
 
-The five final recommendations are **model-based candidates**, not experimentally validated formulations.
+从而在：
+
+```text
+Exploitation
+vs
+Exploration
+```
+
+之间进行平衡。
+
+但材料优化存在一个重要问题：
+
+> **优化器很容易把配方推向历史数据覆盖不足的区域。**
+
+因此项目进一步加入 reliability screening：
+
+```text
+Formulation constraints
+        ↓
+Experimental property ranges
+        ↓
+Gaussian-process uncertainty
+        ↓
+Applicability-domain distance
+        ↓
+Distance from historical formulations
+        ↓
+Pareto filtering
+```
+
+这里使用的是：
+
+> **Safety-aware Bayesian Optimization**
+
+它是一套面向工程应用的约束与可靠性筛选流程，并不声称实现理论上的 SafeOpt 安全保证。
+
+当前 pipeline：
+
+```text
+100   historical experiments
+ ↓
+20    safety-aware BO candidates
+ ↓
+10    within experimental performance ranges
+ ↓
+7     Pareto candidates
+ ↓
+5     final model-based recommendations
+```
+
+这 5 个候选目前仍然是：
+
+```text
+Model-based recommendations
+```
+
+而不是已经完成实验验证的最终配方。
 
 ---
 
-## 7. Batch Experiment Selection
+## 6. Next-Experiment Selection
 
-A dedicated batch-selection layer is added after safety-aware Bayesian optimization.
+最终没有直接选择预测分数最高的 5 个配方。
 
-Instead of simply taking the five candidates with the highest predicted score, the next-experiment strategy balances:
+下一轮实验设计综合考虑：
 
-- **60% predicted performance / safety** — exploitation
-- **25% model uncertainty** — exploration
-- **15% formulation-space diversity** — avoid redundant experiments
+```text
+60%  Predicted performance / safety
+25%  Model uncertainty
+15%  Formulation diversity
+```
 
-The implementation uses a greedy batch-selection strategy in standardized formulation space.
+这样既包含 exploitation，也保留 exploration，并避免一次实验全部集中在非常相似的配方区域。
 
-### Current recommended next experiments
+当前推荐：
 
-| Rank | EVA | Polymer A | Polymer B | Pred. LOI | Pred. UL-94 | Pred. Trans. | Utility STD | Selection reason |
+| Rank | EVA | Polymer A | Polymer B | Pred. LOI | UL-94 | Trans. | Utility STD | Reason |
 |---:|---:|---:|---:|---:|---|---:|---:|---|
-| 1 | 46.0 | 10 | 15 | 30.3 | V-1 | 70.9 | 0.070 | High predicted performance |
-| 2 | 56.6 | 0 | 15 | 29.6 | V-1 | 72.6 | 0.056 | High predicted performance |
-| 3 | 53.8 | 15 | 5 | 29.4 | V-1 | 72.1 | 0.069 | Batch diversity |
-| 4 | 58.4 | 5 | 10 | 29.1 | V-1 | 73.0 | 0.071 | Batch diversity |
-| 5 | 52.4 | 5 | 10 | 30.5 | V-1 | 69.4 | 0.081 | Exploration / high model uncertainty |
+| 1 | 46.0 | 10 | 15 | 30.3 | V-1 | 70.9 | 0.070 | High performance |
+| 2 | 56.6 | 0 | 15 | 29.6 | V-1 | 72.6 | 0.056 | High performance |
+| 3 | 53.8 | 15 | 5 | 29.4 | V-1 | 72.1 | 0.069 | Diversity |
+| 4 | 58.4 | 5 | 10 | 29.1 | V-1 | 73.0 | 0.071 | Diversity |
+| 5 | 52.4 | 5 | 10 | 30.5 | V-1 | 69.4 | 0.081 | Exploration |
 
-The complete formulations and model diagnostics are saved to:
+完整结果：
 
 ```text
 results/next_experiment_selection/next_experiments.csv
 ```
 
-This layer is best interpreted as **practical batch experiment selection built on top of Bayesian optimization**, rather than as a separate theoretical Active Learning algorithm.
+![Final Optimization Result](docs/images/final_optimization_result.png)
 
 ---
 
-## 8. Experimental Feedback Interface
+## 7. Experimental Closed Loop
 
-The project includes an explicit interface for future real experimental feedback.
+项目预留了真实实验结果回填接口：
 
-### Create a blank measurement template
+```text
+Model recommendation
+        ↓
+Laboratory experiment
+        ↓
+Real LOI / UL-94 / Transmittance
+        ↓
+Data validation
+        ↓
+Dataset update
+        ↓
+Model retraining
+        ↓
+Next optimization cycle
+```
+
+创建实验记录模板：
 
 ```bash
 python src/update_experimental_data.py --create-template
 ```
 
-This creates:
+真实实验完成后，将测量结果填写到：
 
 ```text
-data/new_experimental_results_template.csv
+new_experimental_results.csv
 ```
 
-Model predictions are stored only as reference columns. The following columns must remain blank until real experiments are performed:
-
-```text
-LOI
-UL_94
-Transmittance
-Haze
-```
-
-### Validate real feedback
-
-After completing experiments:
-
-1. copy the template
-2. rename it to `new_experimental_results.csv`
-3. fill in **real measured values only**
-4. run a dry validation
+首先进行 dry-run validation：
 
 ```bash
 python src/update_experimental_data.py
 ```
 
-The validation checks:
+检查：
 
-- missing values
-- numeric fields
-- allowed UL-94 labels
-- property ranges
-- formulation balance
+```text
+Missing values
+Numeric fields
+UL-94 labels
+Property ranges
+Formulation balance
+```
 
-No dataset is modified during dry-run validation.
-
-### Commit validated real measurements
-
-Only after validation passes:
+验证通过后：
 
 ```bash
 python src/update_experimental_data.py --commit
 ```
 
-The script backs up the existing raw dataset before appending new experimental rows.
-
-> Model predictions are never copied back as experimental labels. This prevents self-reinforcing data leakage.
-
----
-
-## 9. Closed-Loop Retraining Workflow
-
-Once **real new experimental measurements** have been committed, the full workflow can be rerun with:
+再运行：
 
 ```bash
 python src/run_closed_loop.py
 ```
 
-The pipeline automatically performs:
+重新完成：
 
 ```text
-Data cleaning
-→ LOI retraining
-→ UL-94 retraining
-→ Transmittance retraining
-→ Multi-objective integration
-→ Pareto analysis
-→ Bayesian optimization
-→ Safety-aware Bayesian optimization
-→ Final recommendation
-→ Next-experiment batch selection
+Model retraining
+→ Multi-objective prediction
+→ Pareto
+→ Bayesian Optimization
+→ Reliability screening
+→ Next-experiment recommendation
 ```
 
-The pipeline is implemented and executable, but the current repository does **not** claim that a real feedback cycle has already been completed.
+> **模型预测值不会作为新的实验标签回填。只有真实测量数据才允许进入下一轮训练。**
+
+当前 closed-loop interface 已实现，但尚未声称已经完成真实实验反馈循环。
 
 ---
 
-## 10. Model Diagnostics
+## 8. Model Diagnostics
 
-The repository includes:
+项目保留了必要的模型诊断与优化结果，包括：
 
-- Actual vs Predicted plots
-- residual analysis
-- regression coefficient analysis
-- UL-94 confusion matrix
-- classification report
-- model-comparison tables
-- Pareto visualization
-- optimization summary outputs
+```text
+Actual vs Predicted
+Residual analysis
+Model comparison
+Regression coefficients
+UL-94 confusion matrix
+Pareto front
+Bayesian optimization outputs
+Next-experiment recommendations
+```
 
 ![Actual vs Predicted](docs/images/actual_vs_predicted.png)
 
-![Final Optimization Result](docs/images/final_optimization_result.png)
+模型选择原则不是：
+
+```text
+more complex model = better model
+```
+
+而是优先考虑：
+
+```text
+Cross-validation performance
++
+Small-data robustness
++
+Interpretability
++
+Materials-domain consistency
+```
 
 ---
 
-## 11. Project Structure
+## 9. Project Structure
 
 ```text
 EVA project/
@@ -363,12 +429,7 @@ EVA project/
 │   ├── polymer_dataset_clean.csv
 │   └── new_experimental_results_template.csv
 │
-├── docs/
-│   └── images/
-│       ├── actual_vs_predicted.png
-│       ├── final_optimization_result.png
-│       ├── pareto_loi_transmittance.png
-│       └── project_summary.png
+├── docs/images/
 │
 ├── models/
 │   ├── loi_model.pkl
@@ -377,13 +438,9 @@ EVA project/
 │
 ├── src/
 │   ├── data_cleaning.py
-│   ├── eda.py
 │   ├── loi_model.py
-│   ├── loi_diagnostics.py
 │   ├── ul94_model.py
-│   ├── ul94_diagnostics.py
 │   ├── transmittance_model.py
-│   ├── transmittance_diagnostics.py
 │   ├── multi_objective_model.py
 │   ├── pareto_analysis.py
 │   ├── bayesian_optimization.py
@@ -391,143 +448,87 @@ EVA project/
 │   ├── final_recommendation.py
 │   ├── next_experiment_recommendation.py
 │   ├── update_experimental_data.py
-│   ├── run_closed_loop.py
-│   └── final_report.py
+│   └── run_closed_loop.py
 │
 ├── results/
-│   ├── eda/
-│   ├── loi_model/
-│   ├── ul94_model/
-│   ├── transmittance_model/
-│   ├── multi_objective/
-│   ├── pareto/
-│   ├── bayesian_optimization/
-│   ├── next_experiment_selection/
-│   └── final_project_report/
-│
 ├── requirements.txt
-├── README.md
-└── .gitignore
+└── README.md
 ```
 
----
-
-## 12. Reproducibility
-
-Install dependencies:
+安装依赖：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Core dependencies include:
-
-- NumPy
-- Pandas
-- scikit-learn
-- Matplotlib
-- Seaborn
-- joblib
-- openpyxl
-
-The current repository uses practical formulation precision consistent with the historical experimental dataset rather than reporting optimizer outputs with unrealistic decimal precision.
-
 ---
 
-## 13. Key Engineering Decisions
+## 10. Limitations
 
-### 1. Small-data model selection
+当前项目边界明确：
 
-For the 100-sample materials dataset, model choice is based on cross-validation rather than assuming that a more complex model must perform better.
+- 数据量只有 **100 组历史实验**
+- UL-94 数据没有 **V-0** 样本
+- 推荐的 5 个候选配方尚未进行真实实验验证
+- 当前 uncertainty / applicability-domain 方法属于工程可靠性控制，而不是严格概率安全保证
+- 模型能力依赖于现有实验设计空间的覆盖范围
 
-### 2. Full-data retraining after model selection
-
-Hold-out/CV results are used for evaluation and model-family selection. Once the modeling approach is fixed, all available experimental data are used to train the final model for candidate screening.
-
-### 3. Reliability before optimum
-
-The project distinguishes between:
+因此项目的目标不是：
 
 ```text
-highest predicted score
+AI directly gives the final formulation
 ```
 
-and
+而是：
+
+> **利用历史实验数据缩小配方搜索空间，并帮助研发人员决定下一批最值得做的实验。**
+
+---
+
+## Why This Project Matters
+
+这个项目更关注材料研发 workflow，而不是单纯比较算法 leaderboard。
+
+它展示了：
 
 ```text
-high predicted performance within a defensible model domain
+Experimental data
++
+Machine Learning
++
+Multi-objective Optimization
++
+Uncertainty
++
+Materials Constraints
++
+Experiment Planning
 ```
 
-### 4. Practical experimental resolution
+如何组合成一个实际可执行的配方研发流程。
 
-Candidate formulations are rounded/discretized to the same practical resolution as the experimental dataset before recommendation.
+### Interview Summary
 
-### 5. No synthetic feedback
-
-A candidate prediction is not treated as a new experimental label. Only real measurements may enter the next model-training cycle.
+> **我基于 100 组 EVA 配方实验数据分别建立 LOI、UL-94 和透光率模型，再通过 Pareto 与 Bayesian Optimization 搜索多目标候选。考虑到小样本材料模型容易在数据覆盖不足区域产生不可靠外推，我进一步加入模型不确定性、适用域和配方距离进行筛选。最终不是直接选择预测值最高的配方，而是结合性能、不确定性和配方多样性推荐下一批 5 组实验，并建立真实实验结果回填与模型重训练接口。**
 
 ---
 
-## 14. Limitations
+## Core Takeaway
 
-This repository intentionally keeps the following limitations explicit:
+> **The goal is not to replace experiments, but to make the next experiment more informative.**
 
-1. **Dataset size is limited to 100 historical experiments.** Model uncertainty and applicability-domain constraints remain important.
-2. **No V-0 samples are present.** The UL-94 classifier cannot currently be considered a validated V-0 predictor.
-3. **The five recommended formulations have not yet been experimentally validated.** They are next-experiment candidates generated by the model workflow.
-4. **The closed-loop retraining interface is implemented, but no fake feedback cycle is reported.** Real measurements are required before retraining.
-5. The current optimization is still dependent on the representativeness and quality of the historical experimental design space.
-
----
-
-## 15. Why This Project Matters for AI-Driven Materials R&D
-
-The project is designed around a materials-R&D question rather than an algorithm benchmark:
+即：
 
 ```text
-How can limited historical formulation experiments be converted into
-more efficient and more reliable decisions about what to test next?
+Historical experiments
+        ↓
+Learn
+        ↓
+Screen
+        ↓
+Recommend
+        ↓
+Experiment
+        ↓
+Learn again
 ```
-
-The repository demonstrates a workflow covering:
-
-- materials experimental-data cleaning
-- small-data machine learning
-- interpretable model evaluation
-- multi-property trade-off analysis
-- Bayesian optimization
-- uncertainty-aware screening
-- applicability-domain control
-- experimentally executable formulation generation
-- batch experiment planning
-- real-data feedback interface
-
-The main value is therefore not any single algorithm, but the integration of **materials-domain constraints + machine learning + optimization + experimental decision-making** into one reproducible workflow.
-
----
-
-## 16. Project Status
-
-**Implemented**
-
-- data cleaning and validation
-- LOI / UL-94 / transmittance models
-- cross-validation and model diagnostics
-- multi-objective prediction
-- Pareto analysis
-- Bayesian optimization
-- safety-aware candidate screening
-- applicability-domain filtering
-- practical formulation rounding
-- batch next-experiment selection
-- experimental-feedback template and validation
-- closed-loop retraining pipeline interface
-
-**Pending real laboratory work**
-
-- preparation of recommended candidate formulations
-- LOI / UL-94 / transmittance / haze measurements
-- feedback of real measurements into the dataset
-- retraining and comparison of the next model iteration
-
-> **Core idea:** use machine learning and optimization to turn limited formulation data into a constrained, interpretable, and experimentally actionable next-experiment strategy.
