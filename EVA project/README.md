@@ -1,7 +1,7 @@
 # EVA Flame-Retardant Formulation Optimization
 
 > 基于 **Machine Learning + Multi-objective Optimization + Bayesian Optimization** 的 EVA 阻燃配方研发项目。  
-> 核心目标：利用有限实验数据，在 **阻燃性能、透明度与模型可靠性** 之间寻找更值得验证的下一批配方。
+> 核心目标：利用有限配方数据，在 **阻燃性能、透明度与模型可靠性** 之间寻找更值得验证的下一批配方。
 
 ---
 
