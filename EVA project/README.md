@@ -11,7 +11,9 @@
 
 > **如何利用已有实验数据，在 LOI、UL-94 和透光率存在性能权衡的情况下，减少盲目试配，并推荐更值得进行下一轮实验的配方？**
 
-项目使用 **100 组 EVA 历史配方实验数据**，分别建立：
+项目使用 **100 组 EVA 配方记录**，数据由**部分真实实验记录 + 基于材料领域约束构建的记录**组成。该数据集主要用于开发和验证材料机器学习、优化与实验推荐 workflow，而不被视为完整的工业真实数据集。
+
+分别建立：
 
 - LOI 回归模型
 - UL-94 分类模型
@@ -46,8 +48,20 @@ Recommended Next Experiments
 当前数据集包含：
 
 ```text
-100 EVA formulation experiments
+100 EVA formulation records
 ```
+
+数据来源为混合数据集：
+
+```text
+Real experimental records
+        +
+Domain-informed constructed records
+```
+
+其中真实实验记录来自实际研发过程并做了适合公开项目的抽象化处理；构建记录则依据材料配方约束、合理变量范围和已有实验规律生成。构建数据用于补充小样本条件下的 workflow 开发，不被描述为真实测量结果。
+
+因此，本项目中的交叉验证指标应理解为**当前混合来源开发数据集上的模型表现**，不能直接等同于真实工业场景中的最终泛化性能。
 
 主要输入变量：
 
@@ -250,7 +264,7 @@ Pareto filtering
 当前 pipeline：
 
 ```text
-100   historical experiments
+100   mixed-source formulation records
  ↓
 20    safety-aware BO candidates
  ↓
@@ -467,9 +481,10 @@ pip install -r requirements.txt
 
 当前项目边界明确：
 
-- 数据量只有 **100 组历史实验**
+- 当前数据集只有 **100 组配方记录**，且其中包含部分基于材料领域约束构建的数据
 - UL-94 数据没有 **V-0** 样本
 - 推荐的 5 个候选配方尚未进行真实实验验证
+- 当前模型指标基于混合来源开发数据集，不能作为真实工业数据泛化能力的最终结论
 - 当前 uncertainty / applicability-domain 方法属于工程可靠性控制，而不是严格概率安全保证
 - 模型能力依赖于现有实验设计空间的覆盖范围
 
@@ -509,7 +524,7 @@ Experiment Planning
 
 ### Interview Summary
 
-> **我基于 100 组 EVA 配方实验数据分别建立 LOI、UL-94 和透光率模型，再通过 Pareto 与 Bayesian Optimization 搜索多目标候选。考虑到小样本材料模型容易在数据覆盖不足区域产生不可靠外推，我进一步加入模型不确定性、适用域和配方距离进行筛选。最终不是直接选择预测值最高的配方，而是结合性能、不确定性和配方多样性推荐下一批 5 组实验，并建立真实实验结果回填与模型重训练接口。**
+> **我基于 100 组 EVA 配方记录建立 LOI、UL-94 和透光率模型，其中一部分来自实际研发实验，另一部分是在材料配方约束和合理性能范围基础上构建，用于补充小样本条件下的 workflow 开发。随后通过 Pareto 与 Bayesian Optimization 搜索多目标候选，并加入不确定性、适用域和配方距离控制外推风险。最终推荐的是下一批待实验验证的候选，而不是未经验证的最终配方；真正用于后续闭环训练的数据只接受真实实验测量结果。**
 
 ---
 
@@ -520,7 +535,7 @@ Experiment Planning
 即：
 
 ```text
-Historical experiments
+Current formulation dataset
         ↓
 Learn
         ↓
